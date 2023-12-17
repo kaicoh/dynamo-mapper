@@ -1,2 +1,3 @@
 # dynamo-mapper
-Mapping struct and DynamoDB
+
+Map your object to DynamoDB table.
