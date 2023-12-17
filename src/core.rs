@@ -14,17 +14,17 @@ pub trait KeyBuilder {
     /// Build the key value.
     ///
     /// If this returns `None`, it means the table doesn't have this kind of key.
-    /// For example if your table doesn't have the sort key, you should set [`NoKey`] as
+    /// For example if your table doesn't have the sort key, you should set [`NotKey`] as
     /// SkBuilder of the [`DynamodbTable`] trait.
     ///
-    /// The [`NoKey`] always returns `None` from the build method.
+    /// The [`NotKey`] always returns `None` from the build method.
     fn build(inputs: Self::Inputs) -> Option<AttributeValue>;
 }
 
 /// A KeyBuilder object representing the absense of the kind of key.
-pub struct NoKey;
+pub struct NotKey;
 
-impl KeyBuilder for NoKey {
+impl KeyBuilder for NotKey {
     type Inputs = ();
 
     fn build(_: Self::Inputs) -> Option<AttributeValue> {
@@ -49,6 +49,6 @@ pub trait DynamodbTable {
 
     /// A KeyBuilder type for the sort key.
     ///
-    /// If your table doesn't have the sort key, use [`NoKey`] as this type.
+    /// If your table doesn't have the sort key, use [`NotKey`] as this type.
     type SkBuilder: KeyBuilder;
 }
