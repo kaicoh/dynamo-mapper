@@ -1,4 +1,8 @@
+#[macro_use]
+mod macros;
+
 mod error;
+pub mod helpers;
 pub mod operations;
 mod table;
 
