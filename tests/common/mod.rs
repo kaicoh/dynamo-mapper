@@ -1,5 +1,3 @@
-use dynamo_mapper::Item;
-
 use aws_config::{retry::RetryConfig, BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::{provider::SharedCredentialsProvider, Credentials};
 use aws_sdk_dynamodb::Client;
@@ -33,18 +31,4 @@ async fn drop_table(client: &Client, table_name: &str) {
         .send()
         .await
         .unwrap();
-}
-
-pub fn get_str(item: &Item, key: &str) -> String {
-    item.get(key)
-        .and_then(|v| v.as_s().ok())
-        .map(|v| v.to_string())
-        .unwrap_or_default()
-}
-
-pub fn get_u8(item: &Item, key: &str) -> u8 {
-    item.get(key)
-        .and_then(|v| v.as_n().ok())
-        .and_then(|v| v.parse().ok())
-        .unwrap()
 }

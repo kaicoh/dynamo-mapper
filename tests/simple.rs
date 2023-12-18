@@ -1,6 +1,7 @@
 mod common;
 
 use dynamo_mapper::{
+    helpers::attribute_value::AttributeMap,
     operations::{get_item::GetItem, put_item::PutItem},
     BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
 };
@@ -12,8 +13,7 @@ use aws_sdk_dynamodb::{
     },
     Client,
 };
-use common::{get_client, get_str, get_u8, tear_down};
-use std::collections::HashMap;
+use common::{get_client, tear_down};
 
 const TABLE_NAME: &str = "People";
 const PK: &str = "pk";
@@ -27,8 +27,7 @@ struct Person {
 
 #[tokio::test]
 async fn get_item() {
-    let client = get_client();
-    create_table(&client).await;
+    let client = setup().await;
 
     let person = Person {
         id: "12345".into(),
@@ -54,8 +53,7 @@ async fn get_item() {
 
 #[tokio::test]
 async fn get_item_but_not_found() {
-    let client = get_client();
-    create_table(&client).await;
+    let client = setup().await;
 
     let result = Person::get_item()
         .set_pk("not found".into())
@@ -71,8 +69,7 @@ async fn get_item_but_not_found() {
 
 #[tokio::test]
 async fn put_item() {
-    let client = get_client();
-    create_table(&client).await;
+    let client = setup().await;
 
     let person = Person {
         id: "12345".into(),
@@ -124,10 +121,11 @@ impl TryFrom<Item> for Person {
     type Error = BoxError;
 
     fn try_from(item: Item) -> Result<Self, Self::Error> {
+        let map = AttributeMap::from(item);
         Ok(Person {
-            id: get_str(&item, "id"),
-            name: get_str(&item, "name"),
-            age: get_u8(&item, "age"),
+            id: map.s("id").unwrap().into(),
+            name: map.s("name").unwrap().into(),
+            age: map.n("age").unwrap().parse().unwrap(),
         })
     }
 }
@@ -135,14 +133,12 @@ impl TryFrom<Item> for Person {
 impl From<Person> for Item {
     fn from(person: Person) -> Item {
         let Person { id, name, age } = person;
-        let mut item: Item = HashMap::new();
-
-        item.insert(PK.into(), pk(&id));
-        item.insert("id".into(), AttributeValue::S(id));
-        item.insert("name".into(), AttributeValue::S(name));
-        item.insert("age".into(), AttributeValue::N(age.to_string()));
-
-        item
+        AttributeMap::new()
+            .set(PK, pk(&id))
+            .set_s("id", id)
+            .set_s("name", name)
+            .set_n("age", age.to_string())
+            .into_item()
     }
 }
 
@@ -173,13 +169,20 @@ async fn create_table(client: &Client) {
         .unwrap();
 }
 
-async fn sdk_put_item(client: &Client, person: &Person) {
-    let mut item: Item = HashMap::new();
+async fn setup() -> Client {
+    let client = get_client();
+    create_table(&client).await;
+    client
+}
 
-    item.insert(PK.into(), pk(&person.id));
-    item.insert("id".into(), AttributeValue::S(person.id.to_string()));
-    item.insert("name".into(), AttributeValue::S(person.name.to_string()));
-    item.insert("age".into(), AttributeValue::N(person.age.to_string()));
+async fn sdk_put_item(client: &Client, person: &Person) {
+    let Person { id, name, age } = person;
+    let item = AttributeMap::new()
+        .set(PK, pk(id))
+        .set_s("id", id)
+        .set_s("name", name)
+        .set_n("age", age.to_string())
+        .into_item();
 
     client
         .put_item()
