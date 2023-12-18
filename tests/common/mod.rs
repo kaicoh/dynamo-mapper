@@ -1,6 +1,8 @@
+use dynamo_mapper::Item;
+
 use aws_config::{retry::RetryConfig, BehaviorVersion, Region, SdkConfig};
 use aws_credential_types::{provider::SharedCredentialsProvider, Credentials};
-use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::{types::AttributeValue, Client};
 use ulid::Ulid;
 
 pub fn get_client() -> Client {
@@ -31,4 +33,27 @@ async fn drop_table(client: &Client, table_name: &str) {
         .send()
         .await
         .unwrap();
+}
+
+pub fn assert_str(item: &Item, key: &str, expected: &str) {
+    match item.get(key).as_ref() {
+        Some(&AttributeValue::S(val)) => {
+            assert_eq!(val.as_str(), expected);
+        }
+        _ => {
+            unreachable!("{key} value is not what is expected");
+        }
+    }
+}
+
+pub fn assert_u8(item: &Item, key: &str, expected: u8) {
+    match item.get(key).as_ref() {
+        Some(&AttributeValue::N(val)) => {
+            let actual: u8 = val.parse().expect("{key} value must be a `u8`");
+            assert_eq!(actual, expected);
+        },
+        _ => {
+            unreachable!("{key} value is not what is expected");
+        }
+    }
 }

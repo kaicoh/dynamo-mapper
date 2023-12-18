@@ -13,7 +13,7 @@ use aws_sdk_dynamodb::{
     },
     Client,
 };
-use common::{get_client, tear_down};
+use common::{assert_str, assert_u8, get_client, tear_down};
 
 const TABLE_NAME: &str = "People";
 const PK: &str = "pk";
@@ -206,27 +206,4 @@ async fn sdk_get_item(client: &Client, pk: &str) -> Option<Item> {
 
 fn pk(id: &str) -> AttributeValue {
     AttributeValue::S(format!("PERSON#{id}"))
-}
-
-fn assert_str(item: &Item, key: &str, expected: &str) {
-    match item.get(key).as_ref() {
-        Some(&AttributeValue::S(val)) => {
-            assert_eq!(val.as_str(), expected);
-        }
-        _ => {
-            unreachable!("{key} value is not what is expected");
-        }
-    }
-}
-
-fn assert_u8(item: &Item, key: &str, expected: u8) {
-    match item.get(key).as_ref() {
-        Some(&AttributeValue::N(val)) => {
-            let actual: u8 = val.parse().expect("{key} value must be a `u8`");
-            assert_eq!(actual, expected);
-        }
-        _ => {
-            unreachable!("{key} value is not what is expected");
-        }
-    }
 }
