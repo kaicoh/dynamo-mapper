@@ -1,7 +1,8 @@
 mod common;
 
 use dynamo_mapper::{
-    operations::get_item::GetItem, BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
+    operations::{get_item::GetItem, put_item::PutItem},
+    BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
 };
 
 use aws_sdk_dynamodb::{
@@ -34,7 +35,7 @@ async fn get_item() {
         name: "Tanaka".into(),
         age: 20,
     };
-    put_item(&client, &person).await;
+    sdk_put_item(&client, &person).await;
 
     let result = Person::get_item()
         .set_pk(person.id.clone())
@@ -68,6 +69,32 @@ async fn get_item_but_not_found() {
     tear_down(&client, TABLE_NAME).await;
 }
 
+#[tokio::test]
+async fn put_item() {
+    let client = get_client();
+    create_table(&client).await;
+
+    let person = Person {
+        id: "12345".into(),
+        name: "Tanaka".into(),
+        age: 20,
+    };
+
+    let result = Person::put_item().set_item(person).send(&client).await;
+    assert!(result.is_ok());
+
+    let opt = sdk_get_item(&client, "PERSON#12345").await;
+    assert!(opt.is_some());
+
+    let item = opt.unwrap();
+    assert_str(&item, PK, "PERSON#12345");
+    assert_str(&item, "id", "12345");
+    assert_str(&item, "name", "Tanaka");
+    assert_u8(&item, "age", 20);
+
+    tear_down(&client, TABLE_NAME).await;
+}
+
 // -----------------------------------------
 // setup section
 // -----------------------------------------
@@ -81,6 +108,7 @@ impl<'a> DynamodbTable<'a> for Person {
 }
 
 impl<'a> GetItem<'a> for Person {}
+impl<'a> PutItem<'a> for Person {}
 
 struct PkBuilder;
 
@@ -101,6 +129,20 @@ impl TryFrom<Item> for Person {
             name: get_str(&item, "name"),
             age: get_u8(&item, "age"),
         })
+    }
+}
+
+impl From<Person> for Item {
+    fn from(person: Person) -> Item {
+        let Person { id, name, age } = person;
+        let mut item: Item = HashMap::new();
+
+        item.insert(PK.into(), pk(&id));
+        item.insert("id".into(), AttributeValue::S(id));
+        item.insert("name".into(), AttributeValue::S(name));
+        item.insert("age".into(), AttributeValue::N(age.to_string()));
+
+        item
     }
 }
 
@@ -131,13 +173,10 @@ async fn create_table(client: &Client) {
         .unwrap();
 }
 
-async fn put_item(client: &Client, person: &Person) {
+async fn sdk_put_item(client: &Client, person: &Person) {
     let mut item: Item = HashMap::new();
 
-    item.insert(
-        PK.into(),
-        AttributeValue::S(format!("PERSON#{}", person.id)),
-    );
+    item.insert(PK.into(), pk(&person.id));
     item.insert("id".into(), AttributeValue::S(person.id.to_string()));
     item.insert("name".into(), AttributeValue::S(person.name.to_string()));
     item.insert("age".into(), AttributeValue::N(person.age.to_string()));
@@ -149,4 +188,42 @@ async fn put_item(client: &Client, person: &Person) {
         .send()
         .await
         .unwrap();
+}
+
+async fn sdk_get_item(client: &Client, pk: &str) -> Option<Item> {
+    client
+        .get_item()
+        .table_name(TABLE_NAME)
+        .key(PK, AttributeValue::S(pk.into()))
+        .send()
+        .await
+        .unwrap()
+        .item
+}
+
+fn pk(id: &str) -> AttributeValue {
+    AttributeValue::S(format!("PERSON#{id}"))
+}
+
+fn assert_str(item: &Item, key: &str, expected: &str) {
+    match item.get(key).as_ref() {
+        Some(&AttributeValue::S(val)) => {
+            assert_eq!(val.as_str(), expected);
+        }
+        _ => {
+            unreachable!("{key} value is not what is expected");
+        }
+    }
+}
+
+fn assert_u8(item: &Item, key: &str, expected: u8) {
+    match item.get(key).as_ref() {
+        Some(&AttributeValue::N(val)) => {
+            let actual: u8 = val.parse().expect("{key} value must be a `u8`");
+            assert_eq!(actual, expected);
+        }
+        _ => {
+            unreachable!("{key} value is not what is expected");
+        }
+    }
 }
