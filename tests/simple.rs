@@ -51,6 +51,23 @@ async fn get_item() {
     tear_down(&client, TABLE_NAME).await;
 }
 
+#[tokio::test]
+async fn get_item_but_not_found() {
+    let client = get_client();
+    create_table(&client).await;
+
+    let result = Person::get_item()
+        .set_pk("not found".into())
+        .send(&client)
+        .await;
+    assert!(result.is_ok());
+
+    let opt = result.unwrap();
+    assert!(opt.is_none());
+
+    tear_down(&client, TABLE_NAME).await;
+}
+
 // -----------------------------------------
 // setup section
 // -----------------------------------------
@@ -113,6 +130,7 @@ async fn create_table(client: &Client) {
         .await
         .unwrap();
 }
+
 async fn put_item(client: &Client, person: &Person) {
     let mut item: Item = HashMap::new();
 
