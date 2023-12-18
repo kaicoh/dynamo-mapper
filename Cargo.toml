@@ -6,3 +6,9 @@ edition = "2021"
 [dependencies]
 aws-sdk-dynamodb = "1.7.0"
 thiserror = "1.0.51"
+
+[dev-dependencies]
+aws-config = { version = "1.1.1", features = ["behavior-version-latest"] }
+aws-credential-types = { version = "1.1.1", features = ["hardcoded-credentials"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+ulid = "1.1.0"

@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 /// A trait enables your objects to execute DynamoDB GetItem operation.
-pub trait GetItem: DynamodbTable + TryFrom<Item, Error = BoxError> {
+pub trait GetItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
     fn get_item() -> GetItemOperation<Self, Self::PkBuilder, Self::SkBuilder> {
         let input_builder = GetItemInput::builder()
             .table_name(Self::TABLE_NAME)
@@ -20,8 +20,8 @@ pub trait GetItem: DynamodbTable + TryFrom<Item, Error = BoxError> {
             .set_expression_attribute_names(Self::expression_attribute_names());
 
         GetItemOperation {
-            pk_attribute: Self::PK_ATTRIBUTE,
-            sk_attribute: Self::SK_ATTRIBUTE,
+            pk_attribute: Self::PK_ATTRIBUTE.to_string(),
+            sk_attribute: Self::SK_ATTRIBUTE.map(|v| v.to_string()),
             pk: None,
             sk: None,
             input_builder,

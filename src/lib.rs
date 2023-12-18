@@ -1,8 +1,8 @@
-mod core;
 mod error;
 pub mod operations;
+mod table;
 
-pub use core::*;
+pub use table::*;
 
 /// Common error.
 pub use error::Error;

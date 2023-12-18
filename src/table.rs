@@ -34,15 +34,15 @@ impl KeyBuilder for NotKey {
 
 /// Represents DynamoDB Table and you should implement this trait to the object to which you map
 /// the DyanmoDB table.
-pub trait DynamodbTable {
+pub trait DynamodbTable<'a> {
     /// The DynamoDB table name.
-    const TABLE_NAME: String;
+    const TABLE_NAME: &'a str;
 
     /// The attribute name for the partition key of the DynamoDB table.
-    const PK_ATTRIBUTE: String;
+    const PK_ATTRIBUTE: &'a str;
 
     /// The attribute name for the sort key of the DynamoDB table.
-    const SK_ATTRIBUTE: Option<String>;
+    const SK_ATTRIBUTE: Option<&'a str>;
 
     /// A KeyBuilder type for the partition key.
     type PkBuilder: KeyBuilder;
