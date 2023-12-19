@@ -51,7 +51,7 @@ pub fn assert_u8(item: &Item, key: &str, expected: u8) {
         Some(&AttributeValue::N(val)) => {
             let actual: u8 = val.parse().expect("{key} value must be a `u8`");
             assert_eq!(actual, expected);
-        },
+        }
         _ => {
             unreachable!("{key} value is not what is expected");
         }

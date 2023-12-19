@@ -107,6 +107,7 @@ pub trait PutItem<'a>: DynamodbTable<'a> + Into<Item> {
 }
 
 /// Represents the DynamoDB PutItem operation.
+#[derive(Debug, Clone)]
 pub struct PutItemOperation<T>
 where
     T: Into<Item>,

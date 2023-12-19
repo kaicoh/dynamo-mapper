@@ -73,6 +73,7 @@ pub trait GetItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
 }
 
 /// Represents the DynamoDB GetItem operation.
+#[derive(Debug, Clone)]
 pub struct GetItemOperation<T, PkBuilder, SkBuilder>
 where
     T: TryFrom<Item, Error = BoxError>,
