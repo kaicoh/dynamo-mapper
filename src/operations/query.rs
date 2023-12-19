@@ -416,7 +416,10 @@ where
     }
 
     fn sk_condition_expression(&self) -> Option<String> {
-        self.sk.as_ref().map(SkCondition::expression)
+        self.sk_attribute
+            .as_ref()
+            .and(self.sk.as_ref())
+            .map(SkCondition::expression)
     }
 
     fn key_expression_attribute_names(&self) -> HashMap<String, String> {
@@ -436,23 +439,25 @@ where
             self.pk.clone().expect("Partition key is not set"),
         );
 
-        match self.sk.as_ref() {
-            Some(
-                SkCondition::Eq(val)
-                | SkCondition::Lt(val)
-                | SkCondition::Lte(val)
-                | SkCondition::Gt(val)
-                | SkCondition::Gte(val)
-                | SkCondition::BeginsWith(val),
-            ) => {
-                map = map.set(SK_EXP_VALUE, val.clone());
+        if self.sk_attribute.is_some() {
+            match self.sk.as_ref() {
+                Some(
+                    SkCondition::Eq(val)
+                    | SkCondition::Lt(val)
+                    | SkCondition::Lte(val)
+                    | SkCondition::Gt(val)
+                    | SkCondition::Gte(val)
+                    | SkCondition::BeginsWith(val),
+                ) => {
+                    map = map.set(SK_EXP_VALUE, val.clone());
+                }
+                Some(SkCondition::Between { from, to }) => {
+                    map = map
+                        .set(BETWEEN_FROM, from.clone())
+                        .set(BETWEEN_TO, to.clone());
+                }
+                None => {}
             }
-            Some(SkCondition::Between { from, to }) => {
-                map = map
-                    .set(BETWEEN_FROM, from.clone())
-                    .set(BETWEEN_TO, to.clone());
-            }
-            None => {}
         }
 
         map.into_item()
