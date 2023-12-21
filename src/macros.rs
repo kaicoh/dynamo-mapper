@@ -1,20 +1,20 @@
 #[macro_export]
 macro_rules! op {
     ($val:expr) => {
-        $crate::helpers::condition_expression::Operand::new(format!("{}", $val))
+        $crate::helpers::expression::Operand::new(format!("{}", $val))
     };
     ($first:expr, $($rest:expr),*) => {{
         let mut val = format!("{}", $first);
         $(
             val = format!("{}.{}", val, $rest);
         )*
-        $crate::helpers::condition_expression::Operand::new(val)
+        $crate::helpers::expression::Operand::new(val)
     }};
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::condition_expression::Operand;
+    use crate::helpers::expression::Operand;
 
     #[test]
     fn op_macro_creates_an_operand() {
