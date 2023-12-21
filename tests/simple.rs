@@ -2,7 +2,7 @@ mod common;
 
 use dynamo_mapper::{
     helpers::attribute_value::AttributeMap,
-    operations::{get_item::GetItem, put_item::PutItem},
+    operations::{get_item::GetItem, put_item::PutItem, query::Query},
     BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
 };
 
@@ -18,7 +18,7 @@ use common::{assert_str, assert_u8, get_client, tear_down};
 const TABLE_NAME: &str = "People";
 const PK: &str = "pk";
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct Person {
     id: String,
     name: String,
@@ -92,6 +92,37 @@ async fn put_item() {
     tear_down(&client, TABLE_NAME).await;
 }
 
+#[tokio::test]
+async fn query() {
+    let client = setup().await;
+
+    let person_0 = Person {
+        id: "0".into(),
+        name: "Tanaka".into(),
+        age: 10,
+    };
+    let person_1 = Person {
+        id: "1".into(),
+        name: "Suzuki".into(),
+        age: 20,
+    };
+
+    sdk_put_item(&client, &person_0).await;
+    sdk_put_item(&client, &person_1).await;
+
+    let result = Person::query().pk_eq("0".into()).send(&client, None).await;
+    assert!(result.is_ok());
+
+    let output = result.unwrap();
+    assert_eq!(output.items.len(), 1);
+    assert!(output.last_evaluated_key.is_none());
+
+    let person = output.items.get(0).unwrap().clone();
+    assert_eq!(person, person_0);
+
+    tear_down(&client, TABLE_NAME).await;
+}
+
 // -----------------------------------------
 // setup section
 // -----------------------------------------
@@ -106,6 +137,7 @@ impl<'a> DynamodbTable<'a> for Person {
 
 impl<'a> GetItem<'a> for Person {}
 impl<'a> PutItem<'a> for Person {}
+impl<'a> Query<'a> for Person {}
 
 struct PkBuilder;
 
