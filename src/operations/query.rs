@@ -1,7 +1,7 @@
 use super::{
     helpers::{
         attribute_value::AttributeMap,
-        expression::{begins_with, condition},
+        expression::{begins_with, Condition as ConditionExt},
     },
     op, BoxError, DynamodbTable, Error, Item, KeyBuilder,
 };
@@ -186,12 +186,12 @@ impl SkCondition {
         let val = op!(SK_EXP_VALUE);
 
         let expr = match self {
-            Self::Eq(_) => condition(sk).eq(val),
-            Self::Lt(_) => condition(sk).lt(val),
-            Self::Lte(_) => condition(sk).lte(val),
-            Self::Gt(_) => condition(sk).gt(val),
-            Self::Gte(_) => condition(sk).gte(val),
-            Self::Between { .. } => condition(sk).between(op!(BETWEEN_FROM), op!(BETWEEN_TO)),
+            Self::Eq(_) => sk.equal(val),
+            Self::Lt(_) => sk.lt(val),
+            Self::Lte(_) => sk.lte(val),
+            Self::Gt(_) => sk.gt(val),
+            Self::Gte(_) => sk.gte(val),
+            Self::Between { .. } => sk.between(op!(BETWEEN_FROM), op!(BETWEEN_TO)),
             Self::BeginsWith(_) => begins_with(sk, val),
         };
 
@@ -415,7 +415,7 @@ where
     }
 
     fn pk_condtion_expression(&self) -> String {
-        condition(op!(PK_EXP_NAME)).eq(op!(PK_EXP_VALUE)).into()
+        op!(PK_EXP_NAME).equal(op!(PK_EXP_VALUE)).into()
     }
 
     fn sk_condition_expression(&self) -> Option<String> {

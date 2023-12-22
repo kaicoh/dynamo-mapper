@@ -24,15 +24,3 @@ impl Operand {
         Self(value.into())
     }
 }
-
-/// Built in function `size`
-///
-/// ```
-/// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::{condition, size};
-/// let expr = condition(size(op!("Brand"))).lte(op!(":v_sub"));
-/// assert_eq!(expr.to_string(), "size (Brand) <= :v_sub");
-/// ```
-pub fn size(operand: Operand) -> Operand {
-    Operand(format!("size ({operand})"))
-}
