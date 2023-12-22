@@ -1,14 +1,18 @@
 mod common;
 
 use dynamo_mapper::{
-    helpers::attribute_value::AttributeMap,
-    operations::{get_item::GetItem, put_item::PutItem, query::Query},
+    helpers::{
+        attribute_value::AttributeMap,
+        expression::update::{self, Update},
+    },
+    op,
+    operations::{get_item::GetItem, put_item::PutItem, query::Query, update_item::UpdateItem},
     BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
 };
 
 use aws_sdk_dynamodb::{
     types::{
-        AttributeDefinition, AttributeValue, BillingMode, KeySchemaElement, KeyType,
+        AttributeDefinition, AttributeValue, BillingMode, KeySchemaElement, KeyType, ReturnValue,
         ScalarAttributeType,
     },
     Client,
@@ -123,6 +127,38 @@ async fn query() {
     tear_down(&client, TABLE_NAME).await;
 }
 
+#[tokio::test]
+async fn update_item() {
+    let client = setup().await;
+
+    let person = Person {
+        id: "123".into(),
+        name: "Tanaka".into(),
+        age: 10,
+    };
+
+    sdk_put_item(&client, &person).await;
+
+    let result = Person::update_item()
+        .set_pk("123".into())
+        .update_expression(update::set(op!("#Age").value(op!(":age"))))
+        .expression_attribute_names([("#Age".to_string(), "age".to_string())].into())
+        .expression_attribute_values(AttributeMap::new().set_n(":age", "20").into_item())
+        .send(&client)
+        .await;
+    assert!(result.is_ok());
+
+    let opt = result.unwrap();
+    assert!(opt.is_some());
+
+    let output = opt.unwrap();
+    assert_eq!(output.id, "123");
+    assert_eq!(output.name, "Tanaka");
+    assert_eq!(output.age, 20);
+
+    tear_down(&client, TABLE_NAME).await;
+}
+
 // -----------------------------------------
 // setup section
 // -----------------------------------------
@@ -138,6 +174,11 @@ impl<'a> DynamodbTable<'a> for Person {
 impl<'a> GetItem<'a> for Person {}
 impl<'a> PutItem<'a> for Person {}
 impl<'a> Query<'a> for Person {}
+impl<'a> UpdateItem<'a> for Person {
+    fn return_values() -> Option<ReturnValue> {
+        Some(ReturnValue::AllNew)
+    }
+}
 
 struct PkBuilder;
 
