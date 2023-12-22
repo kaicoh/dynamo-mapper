@@ -9,7 +9,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").equal(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x = :x");
@@ -26,7 +26,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").ne(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x <> :x");
@@ -43,7 +43,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").lt(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x < :x");
@@ -59,7 +59,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").lte(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x <= :x");
@@ -75,7 +75,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").gt(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x > :x");
@@ -92,7 +92,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").gte(op!(":x"));
     /// assert_eq!(expr.to_string(), "#x >= :x");
@@ -109,7 +109,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").between(op!(":x"), op!(":y"));
     /// assert_eq!(expr.to_string(), "#x BETWEEN :x AND :y");
@@ -126,7 +126,7 @@ pub trait Condition: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::Condition;
+    /// use dynamo_mapper::helpers::expression::condition::Condition;
     ///
     /// let expr = op!("#x").any([op!(":x"), op!(":y")]);
     /// assert_eq!(expr.to_string(), "#x IN (:x, :y)");
@@ -236,7 +236,7 @@ impl ConditionExpression {
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::{attribute_exists, not};
+/// # use dynamo_mapper::helpers::expression::condition::{attribute_exists, not};
 /// let expr = not(attribute_exists(op!("#a")));
 /// assert_eq!(expr.to_string(), "NOT attribute_exists (#a)");
 /// ```
@@ -248,7 +248,7 @@ pub fn not(condition_expression: ConditionExpression) -> ConditionExpression {
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::{paren, Condition};
+/// # use dynamo_mapper::helpers::expression::condition::{paren, Condition};
 /// let expr_0 = op!("#x").equal(op!(":x"));
 /// let expr_1 = op!("#y").equal(op!(":y"));
 /// let expr_2 = op!("#z").equal(op!(":z"));
@@ -264,7 +264,7 @@ pub fn paren(condition_expression: ConditionExpression) -> ConditionExpression {
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::attribute_exists;
+/// # use dynamo_mapper::helpers::expression::condition::attribute_exists;
 /// let expr = attribute_exists(op!("#Pictures", "#SideView"));
 /// assert_eq!(expr.to_string(), "attribute_exists (#Pictures.#SideView)");
 /// ```
@@ -276,7 +276,7 @@ pub fn attribute_exists(operand: impl Into<Operand>) -> ConditionExpression {
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::attribute_not_exists;
+/// # use dynamo_mapper::helpers::expression::condition::attribute_not_exists;
 /// let expr = attribute_not_exists(op!("Manufacturer"));
 /// assert_eq!(expr.to_string(), "attribute_not_exists (Manufacturer)");
 /// ```
@@ -288,7 +288,7 @@ pub fn attribute_not_exists(operand: impl Into<Operand>) -> ConditionExpression 
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::attribute_type;
+/// # use dynamo_mapper::helpers::expression::condition::attribute_type;
 /// let expr = attribute_type(op!("ProductReviews", "FiveStar"), op!(":v_sub"));
 /// assert_eq!(expr.to_string(), "attribute_type (ProductReviews.FiveStar, :v_sub)");
 /// ```
@@ -303,7 +303,7 @@ pub fn attribute_type(path: impl Into<Operand>, r#type: impl Into<Operand>) -> C
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::begins_with;
+/// # use dynamo_mapper::helpers::expression::condition::begins_with;
 /// let expr = begins_with(op!("Pictures", "FrontView"), op!(":v_sub"));
 /// assert_eq!(expr.to_string(), "begins_with (Pictures.FrontView, :v_sub)");
 /// ```
@@ -318,7 +318,7 @@ pub fn begins_with(path: impl Into<Operand>, substr: impl Into<Operand>) -> Cond
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::contains;
+/// # use dynamo_mapper::helpers::expression::condition::contains;
 /// let expr = contains(op!("Brand"), op!(":v_sub"));
 /// assert_eq!(expr.to_string(), "contains (Brand, :v_sub)");
 /// ```
@@ -333,7 +333,7 @@ pub fn contains(path: impl Into<Operand>, operand: impl Into<Operand>) -> Condit
 ///
 /// ```
 /// # use dynamo_mapper::op;
-/// # use dynamo_mapper::helpers::expression::{Condition, size};
+/// # use dynamo_mapper::helpers::expression::condition::{Condition, size};
 /// let expr = size(op!("Brand")).lte(op!(":v_sub"));
 /// assert_eq!(expr.to_string(), "size (Brand) <= :v_sub");
 /// ```

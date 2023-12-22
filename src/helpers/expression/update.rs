@@ -9,7 +9,7 @@ pub trait Update: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::{set, Update};
+    /// use dynamo_mapper::helpers::expression::update::{set, Update};
     ///
     /// let expr = set(op!("#x").value(op!(":x")));
     /// assert_eq!(expr.to_string(), "SET #x = :x");
@@ -25,7 +25,7 @@ pub trait Update: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::{set, Update};
+    /// use dynamo_mapper::helpers::expression::update::{set, Update};
     ///
     /// let expr = set(op!("#x").value(op!(":a").add(op!(":b"))));
     /// assert_eq!(expr.to_string(), "SET #x = :a + :b");
@@ -38,7 +38,7 @@ pub trait Update: Into<Operand> {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::{set, Update};
+    /// use dynamo_mapper::helpers::expression::update::{set, Update};
     ///
     /// let expr = set(op!("#x").value(op!(":a").sub(op!(":b"))));
     /// assert_eq!(expr.to_string(), "SET #x = :a - :b");
@@ -52,7 +52,7 @@ pub trait Update: Into<Operand> {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::{list_append, set, Update};
+/// use dynamo_mapper::helpers::expression::update::{list_append, set, Update};
 ///
 /// let expr = set(op!("#x").value(list_append(op!("#x"), op!(":vals"))));
 /// assert_eq!(expr.to_string(), "SET #x = list_append (#x, :vals)");
@@ -68,7 +68,7 @@ pub fn set(statement: SetAction) -> UpdateExpression {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::remove;
+/// use dynamo_mapper::helpers::expression::update::remove;
 ///
 /// let expr = remove(op!("Brand"))
 ///     .and(remove(op!("InStock")))
@@ -86,7 +86,7 @@ pub fn remove(path: impl Into<Operand>) -> UpdateExpression {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::add;
+/// use dynamo_mapper::helpers::expression::update::add;
 ///
 /// let expr = add(op!("QuantityOnHand"), op!(":q"));
 /// assert_eq!(expr.to_string(), "ADD QuantityOnHand :q");
@@ -102,7 +102,7 @@ pub fn add(path: Operand, value: Operand) -> UpdateExpression {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::delete;
+/// use dynamo_mapper::helpers::expression::update::delete;
 ///
 /// let expr = delete(op!("Color"), op!(":p"));
 /// assert_eq!(expr.to_string(), "DELETE Color :p");
@@ -133,7 +133,7 @@ impl UpdateExpression {
     ///
     /// ```
     /// use dynamo_mapper::op;
-    /// use dynamo_mapper::helpers::expression::{remove, set, Update};
+    /// use dynamo_mapper::helpers::expression::update::{remove, set, Update};
     ///
     /// let expr = set(op!("Price").value(op!("Price").sub(op!(":p"))))
     ///     .and(remove(op!("InStock")));
@@ -283,7 +283,7 @@ impl From<SetActionFunction> for SetActionOperand {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::{list_append, set, Update};
+/// use dynamo_mapper::helpers::expression::update::{list_append, set, Update};
 ///
 /// let expr = set(op!("#ri").value(list_append(op!("#ri"), op!(":vals"))));
 /// assert_eq!(expr.to_string(), "SET #ri = list_append (#ri, :vals)");
@@ -296,7 +296,7 @@ pub fn list_append(list1: Operand, list2: Operand) -> SetActionFunction {
 ///
 /// ```
 /// use dynamo_mapper::op;
-/// use dynamo_mapper::helpers::expression::{if_not_exists, set, Update};
+/// use dynamo_mapper::helpers::expression::update::{if_not_exists, set, Update};
 ///
 /// let expr = set(op!("Price").value(if_not_exists(op!("Price"), op!(":p"))));
 /// assert_eq!(expr.to_string(), "SET Price = if_not_exists (Price, :p)");

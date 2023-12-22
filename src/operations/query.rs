@@ -1,7 +1,7 @@
 use super::{
     helpers::{
         attribute_value::AttributeMap,
-        expression::{begins_with, Condition as ConditionExt},
+        expression::condition::{begins_with, Condition as ConditionExt},
     },
     op, BoxError, DynamodbTable, Error, Item, KeyBuilder,
 };
