@@ -145,3 +145,42 @@ where
         item
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_tables::*;
+    use super::*;
+
+    mod single_key {
+        use super::*;
+
+        impl<'a> GetItem<'a> for SingleKey {}
+
+        #[test]
+        fn it_creates_key_from_partition_key() {
+            let ope = SingleKey::get_item();
+            let keys = ope.set_pk(100).keys();
+            assert_eq!(keys.get("pk"), Some(&AttributeValue::S("100".into())));
+            assert!(keys.get("sk").is_none());
+        }
+    }
+
+    mod composite_key {
+        use super::*;
+
+        impl<'a> GetItem<'a> for CompositeKey {}
+
+        #[test]
+        fn it_creates_key_from_partition_key_and_sort_key() {
+            let ope = CompositeKey::get_item();
+            let keys = ope.set_pk(100).keys();
+            assert_eq!(keys.get("pk"), Some(&AttributeValue::S("100".into())));
+            assert!(keys.get("sk").is_none());
+
+            let ope = CompositeKey::get_item();
+            let keys = ope.set_pk(100).set_sk("foo".into()).keys();
+            assert_eq!(keys.get("pk"), Some(&AttributeValue::S("100".into())));
+            assert_eq!(keys.get("sk"), Some(&AttributeValue::S("foo".into())));
+        }
+    }
+}
