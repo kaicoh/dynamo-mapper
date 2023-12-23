@@ -6,7 +6,10 @@ use dynamo_mapper::{
         expression::update::{self, Update},
     },
     op,
-    operations::{get_item::GetItem, put_item::PutItem, query::Query, update_item::UpdateItem},
+    operations::{
+        delete_item::DeleteItem, get_item::GetItem, put_item::PutItem, query::Query,
+        update_item::UpdateItem,
+    },
     BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
 };
 
@@ -159,6 +162,33 @@ async fn update_item() {
     tear_down(&client, TABLE_NAME).await;
 }
 
+#[tokio::test]
+async fn delete_item() {
+    let client = setup().await;
+
+    let person = Person {
+        id: "123".into(),
+        name: "Tanaka".into(),
+        age: 10,
+    };
+
+    sdk_put_item(&client, &person).await;
+
+    let result = Person::delete_item()
+        .set_pk("123".into())
+        .send(&client)
+        .await;
+    assert!(result.is_ok());
+
+    let opt = result.unwrap();
+    assert!(opt.is_none());
+
+    let opt = sdk_get_item(&client, "PERSON#123").await;
+    assert!(opt.is_none());
+
+    tear_down(&client, TABLE_NAME).await;
+}
+
 // -----------------------------------------
 // setup section
 // -----------------------------------------
@@ -179,6 +209,7 @@ impl<'a> UpdateItem<'a> for Person {
         Some(ReturnValue::AllNew)
     }
 }
+impl<'a> DeleteItem<'a> for Person {}
 
 struct PkBuilder;
 
