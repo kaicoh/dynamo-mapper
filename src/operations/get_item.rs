@@ -2,7 +2,7 @@ use super::{BoxError, DynamodbTable, Error, Item, KeyBuilder};
 
 use aws_sdk_dynamodb::{
     operation::get_item::{builders::GetItemInputBuilder, GetItemInput},
-    types::{AttributeValue, ReturnConsumedCapacity},
+    types::AttributeValue,
     Client,
 };
 use std::collections::HashMap;
@@ -13,9 +13,7 @@ pub trait GetItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
     fn get_item() -> GetItemOperation<Self, Self::PkBuilder, Self::SkBuilder> {
         let input_builder = GetItemInput::builder()
             .table_name(Self::TABLE_NAME)
-            .set_attributes_to_get(Self::attribute_to_get())
             .set_consistent_read(Self::consistent_read())
-            .set_return_consumed_capacity(Self::return_consumed_capacity())
             .set_projection_expression(Self::projection_expression())
             .set_expression_attribute_names(Self::expression_attribute_names());
 
@@ -31,27 +29,11 @@ pub trait GetItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
         }
     }
 
-    /// Return values to be passed as `AttributeToGet` to [`GetItemInput`].
-    /// Default is None.
-    ///
-    /// You should overwrite this method only if you use `AttributeToGet` option.
-    fn attribute_to_get() -> Option<Vec<String>> {
-        None
-    }
-
     /// Return value to be passed as `ConsistentRead` to [`GetItemInput`].
     /// Default is None.
     ///
     /// You should overwrite this method only if you use `ConsistentRead` option.
     fn consistent_read() -> Option<bool> {
-        None
-    }
-
-    /// Return value to be passed as `ReturnConsumedCapacity` to [`GetItemInput`].
-    /// Default is None.
-    ///
-    /// You should overwrite this method only if you use `ReturnConsumedCapacity` option.
-    fn return_consumed_capacity() -> Option<ReturnConsumedCapacity> {
         None
     }
 
