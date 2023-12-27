@@ -27,6 +27,11 @@ pub trait UpdateItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
         }
     }
 
+    /// Return [`UpdateItemOperation`] for self.
+    fn update(&self) -> UpdateItemOperation<'a, Self, Self::Key> {
+        Self::update_item().set_key_from(self)
+    }
+
     /// Return value to be passed as `ReturnValues` to [`UpdateItemInput`].
     /// Default is None.
     ///
@@ -93,6 +98,14 @@ where
     pub fn set_key(self, pk: K::PartitionInput, sk: K::SortInput) -> Self {
         Self {
             key: Some(K::key(pk, sk)),
+            ..self
+        }
+    }
+
+    /// Set key from the instance mapped to the Table.
+    pub fn set_key_from(self, item: &T) -> Self {
+        Self {
+            key: Some(item.key()),
             ..self
         }
     }

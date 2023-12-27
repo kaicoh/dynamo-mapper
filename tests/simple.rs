@@ -84,7 +84,7 @@ async fn put_item() {
         age: 20,
     };
 
-    let result = Person::put_item().set_item(person).send(&client).await;
+    let result = person.put().send(&client).await;
     assert!(result.is_ok());
 
     let opt = sdk_get_item(&client, "PERSON#12345").await;
@@ -142,8 +142,8 @@ async fn update_item() {
 
     sdk_put_item(&client, &person).await;
 
-    let result = Person::update_item()
-        .set_key("123".into(), ())
+    let result = person
+        .update()
         .set_update_expression(update::set(op!("#Age").value(op!(":age"))))
         .set_expression_attribute_names([("#Age".to_string(), "age".to_string())].into())
         .set_expression_attribute_values(AttributeMap::new().set_n(":age", "20").into_item())
@@ -174,10 +174,7 @@ async fn delete_item() {
 
     sdk_put_item(&client, &person).await;
 
-    let result = Person::delete_item()
-        .set_key("123".into(), ())
-        .send(&client)
-        .await;
+    let result = person.delete().send(&client).await;
     assert!(result.is_ok());
 
     let opt = result.unwrap();

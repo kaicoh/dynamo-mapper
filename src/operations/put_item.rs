@@ -29,6 +29,11 @@ pub trait PutItem<'a>: DynamodbTable<'a> + Into<Item> {
         }
     }
 
+    /// Return [`PutItemOperation`] for self
+    fn put(self) -> PutItemOperation<'a, Self> {
+        Self::put_item().set_item(self)
+    }
+
     /// Return values to be passed as `ReturnValues` to [`PutItemInput`].
     /// Default is None.
     ///

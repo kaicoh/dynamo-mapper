@@ -26,6 +26,11 @@ pub trait DeleteItem<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
         }
     }
 
+    /// Return [`DeleteItemOperation`] for self
+    fn delete(&self) -> DeleteItemOperation<'a, Self, Self::Key> {
+        Self::delete_item().set_key_from(self)
+    }
+
     /// Return value to be passed as `ReturnValues` to [`DeleteItemInput`].
     /// Default is None.
     ///
@@ -84,6 +89,14 @@ where
     pub fn set_key(self, pk: K::PartitionInput, sk: K::SortInput) -> Self {
         Self {
             key: Some(K::key(pk, sk)),
+            ..self
+        }
+    }
+
+    /// Set key from the instance mapped to the Table.
+    pub fn set_key_from(self, item: &T) -> Self {
+        Self {
+            key: Some(item.key()),
             ..self
         }
     }
