@@ -10,7 +10,7 @@ use dynamo_mapper::{
         delete_item::DeleteItem, get_item::GetItem, put_item::PutItem, query::Query,
         update_item::UpdateItem,
     },
-    BoxError, DynamodbTable, Item, KeyBuilder, NotKey,
+    BoxError, DynamodbTable, Item, Key,
 };
 
 use aws_sdk_dynamodb::{
@@ -44,7 +44,7 @@ async fn get_item() {
     sdk_put_item(&client, &person).await;
 
     let result = Person::get_item()
-        .set_pk(person.id.clone())
+        .set_key(person.id.clone(), ())
         .send(&client)
         .await;
     assert!(result.is_ok());
@@ -63,7 +63,7 @@ async fn get_item_but_not_found() {
     let client = setup().await;
 
     let result = Person::get_item()
-        .set_pk("not found".into())
+        .set_key("not found".into(), ())
         .send(&client)
         .await;
     assert!(result.is_ok());
@@ -143,10 +143,10 @@ async fn update_item() {
     sdk_put_item(&client, &person).await;
 
     let result = Person::update_item()
-        .set_pk("123".into())
-        .update_expression(update::set(op!("#Age").value(op!(":age"))))
-        .expression_attribute_names([("#Age".to_string(), "age".to_string())].into())
-        .expression_attribute_values(AttributeMap::new().set_n(":age", "20").into_item())
+        .set_key("123".into(), ())
+        .set_update_expression(update::set(op!("#Age").value(op!(":age"))))
+        .set_expression_attribute_names([("#Age".to_string(), "age".to_string())].into())
+        .set_expression_attribute_values(AttributeMap::new().set_n(":age", "20").into_item())
         .send(&client)
         .await;
     assert!(result.is_ok());
@@ -175,7 +175,7 @@ async fn delete_item() {
     sdk_put_item(&client, &person).await;
 
     let result = Person::delete_item()
-        .set_pk("123".into())
+        .set_key("123".into(), ())
         .send(&client)
         .await;
     assert!(result.is_ok());
@@ -194,11 +194,12 @@ async fn delete_item() {
 // -----------------------------------------
 impl<'a> DynamodbTable<'a> for Person {
     const TABLE_NAME: &'a str = TABLE_NAME;
-    const PK_ATTRIBUTE: &'a str = PK;
-    const SK_ATTRIBUTE: Option<&'a str> = None;
 
-    type PkBuilder = PkBuilder;
-    type SkBuilder = NotKey;
+    type Key = PersonKey;
+
+    fn key_inputs(&self) -> (String, ()) {
+        (self.id.to_string(), ())
+    }
 }
 
 impl<'a> GetItem<'a> for Person {}
@@ -211,13 +212,21 @@ impl<'a> UpdateItem<'a> for Person {
 }
 impl<'a> DeleteItem<'a> for Person {}
 
-struct PkBuilder;
+struct PersonKey;
 
-impl KeyBuilder for PkBuilder {
-    type Inputs = String;
+impl<'a> Key<'a> for PersonKey {
+    const PARTITION_KEY: &'a str = PK;
+    const SORT_KEY: Option<&'a str> = None;
 
-    fn build(inputs: Self::Inputs) -> Option<AttributeValue> {
-        Some(AttributeValue::S(format!("PERSON#{}", inputs)))
+    type PartitionInput = String;
+    type SortInput = ();
+
+    fn partition_key(input: Self::PartitionInput) -> AttributeValue {
+        AttributeValue::S(format!("PERSON#{input}"))
+    }
+
+    fn sort_key(_: Self::SortInput) -> Option<AttributeValue> {
+        None
     }
 }
 
@@ -238,7 +247,6 @@ impl From<Person> for Item {
     fn from(person: Person) -> Item {
         let Person { id, name, age } = person;
         AttributeMap::new()
-            .set(PK, pk(&id))
             .set_s("id", id)
             .set_s("name", name)
             .set_n("age", age.to_string())

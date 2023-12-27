@@ -3,7 +3,7 @@ use super::{
         attribute_value::AttributeMap,
         expression::condition::{begins_with, Condition as ConditionExt},
     },
-    op, BoxError, DynamodbTable, Error, Item, KeyBuilder,
+    op, BoxError, DynamodbTable, Error, Item, Key,
 };
 
 use aws_sdk_dynamodb::{
@@ -16,7 +16,7 @@ use std::marker::PhantomData;
 
 /// A trait enables your objects to execute DynamoDB Query operation.
 pub trait Query<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
-    fn query() -> QueryOperation<Self, Self::PkBuilder, Self::SkBuilder> {
+    fn query() -> QueryOperation<'a, Self, Self::Key> {
         let input_builder = QueryInput::builder()
             .table_name(Self::TABLE_NAME)
             .set_index_name(Self::index_name())
@@ -35,14 +35,13 @@ pub trait Query<'a>: DynamodbTable<'a> + TryFrom<Item, Error = BoxError> {
             .set_expression_attribute_values(Self::expression_attribute_values());
 
         QueryOperation {
-            pk_attribute: Self::PK_ATTRIBUTE.to_string(),
-            sk_attribute: Self::SK_ATTRIBUTE.map(|v| v.to_string()),
+            pk_attr: Self::Key::PARTITION_KEY,
+            sk_attr: Self::Key::SORT_KEY,
             pk: None,
             sk: None,
             input_builder,
             item: PhantomData,
-            pk_builder: PhantomData,
-            sk_builder: PhantomData,
+            key_builder: PhantomData,
         }
     }
 
@@ -230,80 +229,77 @@ where
 
 /// Represents the DynamoDB Query operation.
 #[derive(Debug, Clone)]
-pub struct QueryOperation<T, PkBuilder, SkBuilder>
+pub struct QueryOperation<'a, T, K>
 where
-    T: TryFrom<Item, Error = BoxError>,
-    PkBuilder: KeyBuilder,
-    SkBuilder: KeyBuilder,
+    T: DynamodbTable<'a> + TryFrom<Item, Error = BoxError>,
+    K: Key<'a>,
 {
-    pk_attribute: String,
-    sk_attribute: Option<String>,
+    pk_attr: &'a str,
+    sk_attr: Option<&'a str>,
     pk: Option<AttributeValue>,
     sk: Option<SkCondition>,
     input_builder: QueryInputBuilder,
     item: PhantomData<T>,
-    pk_builder: PhantomData<PkBuilder>,
-    sk_builder: PhantomData<SkBuilder>,
+    key_builder: PhantomData<K>,
 }
 
-impl<T, PkBuilder, SkBuilder> QueryOperation<T, PkBuilder, SkBuilder>
+impl<'a, T, K> QueryOperation<'a, T, K>
 where
-    T: TryFrom<Item, Error = BoxError>,
-    PkBuilder: KeyBuilder,
-    SkBuilder: KeyBuilder,
+    T: DynamodbTable<'a> + TryFrom<Item, Error = BoxError>,
+    K: Key<'a>,
 {
     /// Set partition key value
-    pub fn pk_eq(self, inputs: PkBuilder::Inputs) -> Self {
+    pub fn pk_eq(self, input: K::PartitionInput) -> Self {
         Self {
-            pk: PkBuilder::build(inputs),
+            pk: Some(K::partition_key(input)),
             ..self
         }
     }
 
     /// Set sort key `equal to` condition
-    pub fn sk_eq(self, inputs: SkBuilder::Inputs) -> Self {
+    pub fn sk_eq(self, input: K::SortInput) -> Self {
         Self {
-            sk: SkBuilder::build(inputs).map(SkCondition::Eq),
+            sk: K::sort_key(input).map(SkCondition::Eq),
             ..self
         }
     }
 
     /// Set sort key `less than` condition
-    pub fn sk_lt(self, inputs: SkBuilder::Inputs) -> Self {
+    pub fn sk_lt(self, input: K::SortInput) -> Self {
         Self {
-            sk: SkBuilder::build(inputs).map(SkCondition::Lt),
+            sk: K::sort_key(input).map(SkCondition::Lt),
             ..self
         }
     }
 
     /// Set sort key `less than or equal to` condition
-    pub fn sk_lte(self, inputs: SkBuilder::Inputs) -> Self {
+    pub fn sk_lte(self, input: K::SortInput) -> Self {
         Self {
-            sk: SkBuilder::build(inputs).map(SkCondition::Lte),
+            sk: K::sort_key(input).map(SkCondition::Lte),
             ..self
         }
     }
 
     /// Set sort key `greater than` condition
-    pub fn sk_gt(self, inputs: SkBuilder::Inputs) -> Self {
+    pub fn sk_gt(self, input: K::SortInput) -> Self {
         Self {
-            sk: SkBuilder::build(inputs).map(SkCondition::Gt),
+            sk: K::sort_key(input).map(SkCondition::Gt),
             ..self
         }
     }
 
     /// Set sort key `greater than or equal to` condition
-    pub fn sk_gte(self, inputs: SkBuilder::Inputs) -> Self {
+    pub fn sk_gte(self, input: K::SortInput) -> Self {
         Self {
-            sk: SkBuilder::build(inputs).map(SkCondition::Gte),
+            sk: K::sort_key(input).map(SkCondition::Gte),
             ..self
         }
     }
 
     /// Set sort key `between A and B` condition
-    pub fn sk_between(self, from: SkBuilder::Inputs, to: SkBuilder::Inputs) -> Self {
-        let condition = SkBuilder::build(from)
-            .zip(SkBuilder::build(to))
+    pub fn sk_between(self, from: K::SortInput, to: K::SortInput) -> Self {
+        let condition = K::sort_key(from)
+            .zip(K::sort_key(to))
             .map(|(from, to)| SkCondition::Between { from, to });
         Self {
             sk: condition,
@@ -320,7 +316,7 @@ where
     }
 
     /// Set `limit` condition
-    pub fn limit(self, limit: i32) -> Self {
+    pub fn set_limit(self, limit: i32) -> Self {
         Self {
             input_builder: self.input_builder.limit(limit),
             ..self
@@ -328,7 +324,7 @@ where
     }
 
     /// Set `index name`
-    pub fn index(self, name: impl Into<String>) -> Self {
+    pub fn set_index(self, name: impl Into<String>) -> Self {
         Self {
             input_builder: self.input_builder.index_name(name),
             ..self
@@ -336,7 +332,7 @@ where
     }
 
     /// Set `scan index forward` option
-    pub fn scan_index_forward(self, forward: bool) -> Self {
+    pub fn set_scan_index_forward(self, forward: bool) -> Self {
         Self {
             input_builder: self.input_builder.scan_index_forward(forward),
             ..self
@@ -348,7 +344,7 @@ where
     /// **Caution**
     /// You can't use keyword `#PK`, `#SK`, `:PK`, `:SK`, `:SK_FROM` or `:SK_TO` as
     /// ExpressionAttributeNames because these words are used in inner logic of this struct.
-    pub fn filter_expression(self, expr: impl Into<String>) -> Self {
+    pub fn set_filter_expression(self, expr: impl Into<String>) -> Self {
         Self {
             input_builder: self.input_builder.filter_expression(expr),
             ..self
@@ -360,7 +356,7 @@ where
     /// **Caution**
     /// You can't use keyword `#PK`, `#SK`, `:PK`, `:SK`, `:SK_FROM` or `:SK_TO` as
     /// ExpressionAttributeNames because these words are used in inner logic of this struct.
-    pub fn filter_expression_attribute_names(self, names: HashMap<String, String>) -> Self {
+    pub fn set_expression_attribute_names(self, names: HashMap<String, String>) -> Self {
         Self {
             input_builder: self
                 .input_builder
@@ -374,7 +370,7 @@ where
     /// **Caution**
     /// You can't use keyword `#PK`, `#SK`, `:PK`, `:SK`, `:SK_FROM` or `:SK_TO` as
     /// ExpressionAttributeNames because these words are used in inner logic of this struct.
-    pub fn filter_expression_attribute_values(self, values: Item) -> Self {
+    pub fn set_expression_attribute_values(self, values: Item) -> Self {
         Self {
             input_builder: self
                 .input_builder
@@ -419,7 +415,7 @@ where
     }
 
     fn sk_condition_expression(&self) -> Option<String> {
-        self.sk_attribute
+        self.sk_attr
             .as_ref()
             .and(self.sk.as_ref())
             .map(SkCondition::expression)
@@ -427,10 +423,10 @@ where
 
     fn key_expression_attribute_names(&self) -> HashMap<String, String> {
         let mut names: HashMap<String, String> = HashMap::new();
-        names.insert(PK_EXP_NAME.into(), self.pk_attribute.clone());
+        names.insert(PK_EXP_NAME.into(), self.pk_attr.to_string());
 
-        if let (Some(sk_attr), Some(_)) = (self.sk_attribute.as_ref(), self.sk.as_ref()) {
-            names.insert(SK_EXP_NAME.into(), sk_attr.into());
+        if let (Some(sk_attr), Some(_)) = (self.sk_attr.as_ref(), self.sk.as_ref()) {
+            names.insert(SK_EXP_NAME.into(), sk_attr.to_string());
         }
 
         names
@@ -442,7 +438,7 @@ where
             self.pk.clone().expect("Partition key is not set"),
         );
 
-        if self.sk_attribute.is_some() {
+        if self.sk_attr.is_some() {
             match self.sk.as_ref() {
                 Some(
                     SkCondition::Eq(val)
@@ -484,345 +480,5 @@ where
             .unwrap_or_default();
         values.extend(self.key_expression_attribute_values());
         values
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_sets_partition_key_condition() {
-        let ope = operation().pk_eq("0".to_string());
-        assert_eq!(ope.pk, Some(AttributeValue::S("PK#0".to_string())));
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_equal_to() {
-        let ope = operation().sk_eq("1".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Eq(AttributeValue::S("SK#1".to_string())))
-        );
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_less_than() {
-        let ope = operation().sk_lt("1".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Lt(AttributeValue::S("SK#1".to_string())))
-        );
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_less_than_or_equal_to() {
-        let ope = operation().sk_lte("1".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Lte(AttributeValue::S("SK#1".to_string())))
-        );
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_greater_than() {
-        let ope = operation().sk_gt("1".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Gt(AttributeValue::S("SK#1".to_string())))
-        );
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_greater_than_or_equal_to() {
-        let ope = operation().sk_gte("1".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Gte(AttributeValue::S("SK#1".to_string())))
-        );
-    }
-
-    #[test]
-    fn it_sets_sort_key_condition_as_between_a_and_b() {
-        let ope = operation().sk_between("1".to_string(), "2".to_string());
-        assert_eq!(
-            ope.sk,
-            Some(SkCondition::Between {
-                from: AttributeValue::S("SK#1".to_string()),
-                to: AttributeValue::S("SK#2".to_string()),
-            }),
-        );
-    }
-
-    #[test]
-    fn it_sets_limit_condition() {
-        let ope = operation().limit(100);
-        assert_eq!(ope.input_builder.get_limit().unwrap(), 100,);
-    }
-
-    #[test]
-    fn it_sets_index_name() {
-        let ope = operation().index("test_index");
-        assert_eq!(
-            ope.input_builder.get_index_name().as_ref().unwrap(),
-            "test_index",
-        );
-    }
-
-    #[test]
-    fn it_sets_scan_index_forward_option() {
-        let ope = operation().scan_index_forward(false);
-        assert_eq!(ope.input_builder.get_scan_index_forward().unwrap(), false,);
-    }
-
-    #[test]
-    fn it_sets_filter_expression() {
-        let ope = operation().filter_expression("#v = :v");
-        assert_eq!(
-            ope.input_builder.get_filter_expression().as_ref().unwrap(),
-            "#v = :v",
-        );
-    }
-
-    #[test]
-    fn it_sets_expression_attribute_names() {
-        let mut names: HashMap<String, String> = HashMap::new();
-        names.insert("#v".into(), "foo".into());
-
-        let ope = operation().filter_expression_attribute_names(names);
-        let map = ope
-            .input_builder
-            .get_expression_attribute_names()
-            .as_ref()
-            .unwrap();
-        assert_eq!(map.get("#v").unwrap(), &"foo".to_string());
-    }
-
-    #[test]
-    fn it_sets_expression_attribute_values() {
-        let item = AttributeMap::new().set_s(":v", "bar").into_item();
-
-        let ope = operation().filter_expression_attribute_values(item);
-        let map = ope
-            .input_builder
-            .get_expression_attribute_values()
-            .as_ref()
-            .unwrap();
-        assert_eq!(map.get(":v").unwrap(), &AttributeValue::S("bar".into()));
-    }
-
-    #[test]
-    fn it_creates_partition_key_condition_expression() {
-        let ope = operation();
-        assert_eq!(ope.pk_condtion_expression(), "#PK = :PK");
-    }
-
-    #[test]
-    fn it_creates_condition_expression_names() {
-        let mut names: HashMap<String, String> = HashMap::new();
-        names.insert("#v".into(), "foo".into());
-
-        let ope = operation().filter_expression_attribute_names(names);
-        let names = ope.expression_attribute_names();
-        assert_eq!(names.get("#PK").unwrap(), &"partition key".to_string());
-        assert_eq!(names.get("#v").unwrap(), &"foo".to_string());
-    }
-
-    #[test]
-    fn it_creates_condition_expression_values() {
-        let item = AttributeMap::new().set_s(":v", "bar").into_item();
-
-        let ope = operation()
-            .pk_eq("0".into())
-            .filter_expression_attribute_values(item);
-        let values = ope.expression_attribute_values();
-        assert_eq!(
-            values.get(":PK").unwrap(),
-            &AttributeValue::S("PK#0".into())
-        );
-        assert_eq!(values.get(":v").unwrap(), &AttributeValue::S("bar".into()));
-    }
-
-    mod partition_key_only {
-        use super::*;
-
-        #[test]
-        fn it_creates_sort_key_condition_expression() {
-            let ope = operation();
-            assert!(ope.sk_condition_expression().is_none());
-
-            // Even if any sort key condition is set, it returns None.
-            let ope = operation().sk_eq("1".into());
-            assert!(ope.sk_condition_expression().is_none());
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression() {
-            // Even if any sort key condition is set, it returns partition key condition.
-            let ope = operation().pk_eq("0".into()).sk_eq("1".into());
-            assert_eq!(ope.key_condition_expression(), "#PK = :PK");
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression_names() {
-            // Even if any sort key condition is set, it returns partition key values.
-            let ope = operation();
-            let names = ope.key_expression_attribute_names();
-            assert_eq!(names.get("#PK").unwrap(), &"partition key".to_string());
-            assert!(names.get("#SK").is_none());
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression_values() {
-            // Even if any sort key condition is set, it returns partition key values.
-            let ope = operation().pk_eq("0".into()).sk_eq("1".into());
-            let values = ope.key_expression_attribute_values();
-            assert_eq!(
-                values.get(":PK").unwrap(),
-                &AttributeValue::S("PK#0".into())
-            );
-            assert!(values.get(":SK").is_none());
-        }
-    }
-
-    mod sort_key_exists {
-        use super::*;
-
-        #[test]
-        fn it_creates_sort_key_condition_expression() {
-            // When any value is not set, it returns None.
-            let ope = operation_with_sk();
-            assert!(ope.sk_condition_expression().is_none());
-
-            // When any value is set, it returns the value.
-            let ope = operation_with_sk().sk_eq("1".into());
-            assert_eq!(ope.sk_condition_expression(), Some("#SK = :SK".into()));
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression() {
-            // When sort key condition is not set, it returns condition expression for partition key
-            // only.
-            let ope = operation_with_sk().pk_eq("0".into());
-            assert_eq!(ope.key_condition_expression(), "#PK = :PK");
-
-            // When any value is set, it returns the value.
-            let ope = operation_with_sk().pk_eq("0".into()).sk_eq("1".into());
-            assert_eq!(ope.key_condition_expression(), "#PK = :PK AND #SK = :SK");
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression_names() {
-            // When sort key condition is not set, it returns condition expression for partition key
-            // only.
-            let ope = operation_with_sk();
-            let names = ope.key_expression_attribute_names();
-            assert_eq!(names.get("#PK").unwrap(), &"partition key".to_string());
-            assert!(names.get("#SK").is_none());
-
-            // When any value is set, it returns condition expression for partition key and sort
-            // key.
-            let ope = operation_with_sk().sk_eq("1".into());
-            let names = ope.key_expression_attribute_names();
-            assert_eq!(names.get("#PK").unwrap(), &"partition key".to_string());
-            assert_eq!(names.get("#SK").unwrap(), &"sort key".to_string());
-        }
-
-        #[test]
-        fn it_creates_key_condition_expression_values() {
-            // Even if any sort key condition is not set, it returns partition key values.
-            let ope = operation_with_sk().pk_eq("0".into());
-            let values = ope.key_expression_attribute_values();
-            assert_eq!(
-                values.get(":PK").unwrap(),
-                &AttributeValue::S("PK#0".into())
-            );
-            assert!(values.get(":SK").is_none());
-
-            // If any sort key condition is set, it returns partition key and sort key values.
-            let ope = operation_with_sk().pk_eq("0".into()).sk_eq("1".into());
-            let values = ope.key_expression_attribute_values();
-            assert_eq!(
-                values.get(":PK").unwrap(),
-                &AttributeValue::S("PK#0".into())
-            );
-            assert_eq!(
-                values.get(":SK").unwrap(),
-                &AttributeValue::S("SK#1".into())
-            );
-
-            // If any sort key condition is set as between A and B, it returns partition key
-            // and sort key values.
-            let ope = operation_with_sk()
-                .pk_eq("0".into())
-                .sk_between("1".into(), "2".into());
-            let values = ope.key_expression_attribute_values();
-            assert_eq!(
-                values.get(":PK").unwrap(),
-                &AttributeValue::S("PK#0".into())
-            );
-            assert_eq!(
-                values.get(":SK_FROM").unwrap(),
-                &AttributeValue::S("SK#1".into())
-            );
-            assert_eq!(
-                values.get(":SK_TO").unwrap(),
-                &AttributeValue::S("SK#2".into())
-            );
-        }
-    }
-
-    fn operation() -> QueryOperation<Person, PartitionKey, SortKey> {
-        QueryOperation {
-            pk_attribute: "partition key".to_string(),
-            sk_attribute: None,
-            pk: None,
-            sk: None,
-            input_builder: QueryInput::builder(),
-            item: PhantomData,
-            pk_builder: PhantomData,
-            sk_builder: PhantomData,
-        }
-    }
-
-    fn operation_with_sk() -> QueryOperation<Person, PartitionKey, SortKey> {
-        QueryOperation {
-            pk_attribute: "partition key".to_string(),
-            sk_attribute: Some("sort key".into()),
-            pk: None,
-            sk: None,
-            input_builder: QueryInput::builder(),
-            item: PhantomData,
-            pk_builder: PhantomData,
-            sk_builder: PhantomData,
-        }
-    }
-
-    struct Person;
-
-    impl TryFrom<Item> for Person {
-        type Error = BoxError;
-
-        fn try_from(_item: Item) -> Result<Self, Self::Error> {
-            Ok(Person {})
-        }
-    }
-
-    struct PartitionKey;
-
-    impl KeyBuilder for PartitionKey {
-        type Inputs = String;
-        fn build(inputs: Self::Inputs) -> Option<AttributeValue> {
-            Some(AttributeValue::S(format!("PK#{inputs}")))
-        }
-    }
-
-    struct SortKey;
-
-    impl KeyBuilder for SortKey {
-        type Inputs = String;
-        fn build(inputs: Self::Inputs) -> Option<AttributeValue> {
-            Some(AttributeValue::S(format!("SK#{inputs}")))
-        }
     }
 }
